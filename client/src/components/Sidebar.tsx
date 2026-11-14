@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   LayoutDashboard,
@@ -187,6 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Database size={16} />
           <span>NASA Research Explorer</span>
         </button>
+
         <div className="nav-section-title">Crew Health Modules</div>
 
         <button
@@ -196,6 +198,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <ClipboardPenLine size={16} />
           <span>Daily Check-in (Offline)</span>
+        </button>
+
+        <button
+          className={`nav-item ${currentTab === 'behavioral-health' ? 'active' : ''}`}
+          onClick={() => onSelectTab('behavioral-health')}
+          style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+        >
+          <BrainCircuit size={16} />
+          <span>Behavioral Health Monitor</span>
         </button>
 
         <button
