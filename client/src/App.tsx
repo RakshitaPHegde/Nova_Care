@@ -81,11 +81,13 @@ export default function App() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      flushOfflineQueue().then(res => {
-        if (res.syncedCount > 0) {
+      flushOfflineQueue()
+        .catch(error => {
+          console.warn('[Sync] Reconnect flush failed:', error);
+        })
+        .finally(() => {
           pending().then(p => setPendingSyncCount(p.length));
-        }
-      });
+        });
     };
 
     const handleOffline = () => {

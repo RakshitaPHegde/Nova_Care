@@ -81,13 +81,17 @@ export const CheckinView: React.FC<CheckinViewProps> = ({
         const record = flushRes.results?.find((r: any) => r.key === idempotencyKey);
 
         if (record?.status === 'rejected') {
-          setStatusMessage(`Check-in rejected by mission server: ${record.error}`);
-        } else if (record?.analysis) {
+          setStatusMessage(`Check-in rejected by mission server: ${record.error || 'Please review this record.'}`);
+        } else if (record?.status === 'failed') {
+          setStatusMessage(`Sync temporarily failed: ${record.error || 'Network or server error'}. Your check-in remains safely queued for retry.`);
+        } else if (record?.status === 'synced' && record?.analysis) {
           setLastAnalysis(record.analysis);
           onCheckinSuccess(record.analysis);
           setStatusMessage(`Check-in synchronized! Risk Status: ${record.analysis.riskCategory} (${record.analysis.riskScore}/100)`);
+        } else if (record?.status === 'synced' || record?.status === 'duplicate') {
+          setStatusMessage('Check-in synchronized with the mission database. Analysis is currently unavailable.');
         } else {
-          setStatusMessage('Check-in submitted and synchronized with mission database.');
+          setStatusMessage('Check-in saved locally and waiting for synchronization. It will retry when connectivity is available.');
         }
       } else {
         setStatusMessage(
