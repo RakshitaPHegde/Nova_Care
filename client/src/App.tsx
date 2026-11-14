@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, request, flushOfflineQueue } from './api';
@@ -35,6 +36,7 @@ import { GravityMindView } from './views/GravityMindView';
 import { LoginView } from './views/LoginView';
 import { ISSTrackerView } from './views/ISSTrackerView';
 import { NasaResearchView } from './views/NasaResearchView';
+import { BehavioralHealthView } from './views/BehavioralHealthView';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
@@ -68,6 +70,7 @@ export default function App() {
         setCurrentTab(hashTab);
       }
     };
+
     window.addEventListener('hashchange', onHashChange);
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [currentTab]);
@@ -447,6 +450,10 @@ export default function App() {
             />
           )}
 
+          {currentTab === 'behavioral-health' && (
+            <BehavioralHealthView />
+          )}
+
           {currentTab === 'gravity-mind' && (
             <GravityMindView
               crew={crew}
@@ -454,6 +461,7 @@ export default function App() {
               onSelectAstronaut={setSelectedAstronautId}
             />
           )}
+
           {currentTab === 'iss-tracker' && <ISSTrackerView />}
 
           {currentTab === 'nasa-research' && <NasaResearchView />}

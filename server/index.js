@@ -1,3 +1,4 @@
+import { createBehavioralHealthRouter } from './behavioral-health.js';
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -56,10 +57,18 @@ const auth = (requiredRole = null) => (req, res, next) => {
   }
 };
 
+
 const wrap = fn => (req, res, next) => fn(req, res, next).catch(err => {
   console.error('[API Error]', err.stack || err.message);
   res.status(500).json({ error: err.message || 'Internal mission server error' });
 });
+
+
+// Behavioral Health Monitor — Member 1
+app.use(
+  '/api/behavioral-health',
+  createBehavioralHealthRouter({ auth, q })
+);
 
 // Generate JWT token with user and astronaut identity
 const generateAuthResponse = async user => {
