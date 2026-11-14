@@ -1,4 +1,4 @@
-# 🚀 AstroVital — Astronaut Health Monitoring System
+# 🚀 Nova_Care — Astronaut Health Monitoring System
 
 AstroVital is an experimental astronaut health-monitoring platform designed to demonstrate how real-time telemetry, anomaly detection, and mission-control dashboards can work together to support crew health monitoring during space missions.
 
