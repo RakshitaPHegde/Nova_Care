@@ -138,7 +138,7 @@ export default function App() {
       .catch(err => console.error('Failed to load profile:', err));
 
     // Load active alerts
-    request<HealthAlert[]>('/api/alerts?status=open')
+    request<HealthAlert[]>('/api/alerts')
       .then(alerts => setOpenAlerts(alerts || []))
       .catch(err => console.error('Failed to load alerts:', err));
 

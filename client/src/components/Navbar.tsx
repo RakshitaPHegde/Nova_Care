@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Volume2, VolumeX, LogOut, UserCheck, Clock, Satellite } from 'lucide-react';
 import { HealthAlert } from '../types';
 
@@ -24,6 +24,46 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [utcTime, setUtcTime] = useState<string>('');
   const [metTime, setMetTime] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const knownAlertIdsRef = useRef<Set<string>>(new Set());
+
+  const playAlertChime = useCallback(() => {
+    try {
+      const AudioContextConstructor =
+        window.AudioContext || (window as any).webkitAudioContext;
+
+      if (!AudioContextConstructor) return;
+
+      const context =
+        audioContextRef.current ?? new AudioContextConstructor();
+
+      audioContextRef.current = context;
+
+      if (context.state === 'suspended') {
+        void context.resume();
+      }
+
+      const now = context.currentTime;
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(880, now);
+      oscillator.frequency.setValueAtTime(1174.66, now + 0.12);
+
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+
+      oscillator.start(now);
+      oscillator.stop(now + 0.4);
+    } catch (error) {
+      console.warn('Audio alert playback unavailable:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -43,8 +83,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [missionDay]);
 
   const toggleSound = () => {
-    setSoundEnabled(!soundEnabled);
+    const nextEnabled = !soundEnabled;
+    setSoundEnabled(nextEnabled);
+
+    if (nextEnabled) {
+      playAlertChime();
+    }
   };
+
+  useEffect(() => {
+    const currentIds = new Set(openAlerts.map(alert => alert.id));
+    const hasNewAlert = openAlerts.some(
+      alert => !knownAlertIdsRef.current.has(alert.id)
+    );
+
+    knownAlertIdsRef.current = currentIds;
+
+    if (soundEnabled && hasNewAlert) {
+      playAlertChime();
+    }
+  }, [openAlerts, soundEnabled, playAlertChime]);
+
+  useEffect(() => {
+    return () => {
+      const context = audioContextRef.current;
+      if (context && context.state !== 'closed') {
+        void context.close();
+      }
+    };
+  }, []);
 
   return (
     <header className="flight-bar no-print">
