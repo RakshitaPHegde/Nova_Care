@@ -1,0 +1,289 @@
+import React, { useState } from 'react';
+import {
+  ClipboardPenLine,
+  Send,
+  Wifi,
+  WifiOff,
+  CheckCircle,
+  AlertTriangle,
+  Heart,
+  Moon,
+  Brain
+} from 'lucide-react';
+import { enqueue } from '../offline';
+import { flushOfflineQueue } from '../api';
+import { Astronaut } from '../types';
+
+interface CheckinViewProps {
+  currentAstronaut: Astronaut | null;
+  isOnline: boolean;
+  onCheckinSuccess: (analysis: any) => void;
+}
+
+export const CheckinView: React.FC<CheckinViewProps> = ({
+  currentAstronaut,
+  isOnline,
+  onCheckinSuccess
+}) => {
+  const [form, setForm] = useState({
+    heartRate: 68,
+    hrv: 58,
+    spo2: 98.5,
+    respiratoryRate: 14,
+    systolicBP: 118,
+    diastolicBP: 76,
+    temperature: 36.8,
+    sleepHours: 7.2,
+    activityLevel: 65,
+    moodScore: 8,
+    stressScore: 3,
+    fatigueScore: 2,
+    symptoms: ''
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<any>(null);
+
+  const localRuleCheck = (data: typeof form) => {
+    const flags = [];
+    if (data.sleepHours < 5) flags.push('Low Sleep Duration (<5h)');
+    if (data.stressScore >= 8) flags.push('Elevated Subjective Stress (>=8/10)');
+    if (data.spo2 < 93) flags.push('Reduced Oxygen Saturation (<93%)');
+    if (data.temperature > 38) flags.push('Core Temperature Elevation (>38.0°C)');
+    if (data.heartRate > 100) flags.push('Tachycardia (>100 bpm)');
+    return flags;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setStatusMessage(null);
+
+    const idempotencyKey = crypto.randomUUID();
+    const payload = {
+      ...form,
+      astronautId: currentAstronaut?.id,
+      recordedAt: new Date().toISOString(),
+      source: 'astronaut_manual_checkin'
+    };
+
+    try {
+      // 1. Enqueue in IndexedDB
+      await enqueue({ key: idempotencyKey, payload });
+
+      // 2. Local rule evaluation
+      const localFlags = localRuleCheck(form);
+
+      // 3. If online, attempt immediate flush
+      if (isOnline) {
+        const flushRes = await flushOfflineQueue();
+        const record = flushRes.results?.find((r: any) => r.key === idempotencyKey);
+
+        if (record?.status === 'rejected') {
+          setStatusMessage(`Check-in rejected by mission server: ${record.error}`);
+        } else if (record?.analysis) {
+          setLastAnalysis(record.analysis);
+          onCheckinSuccess(record.analysis);
+          setStatusMessage(`Check-in synchronized! Risk Status: ${record.analysis.riskCategory} (${record.analysis.riskScore}/100)`);
+        } else {
+          setStatusMessage('Check-in submitted and synchronized with mission database.');
+        }
+      } else {
+        setStatusMessage(
+          `Offline: Check-in saved securely in local browser vault. ${
+            localFlags.length ? 'Local warning: ' + localFlags.join(', ') : 'Local check: Nominal.'
+          } Will automatically sync when connection returns.`
+        );
+      }
+    } catch (err: any) {
+      setStatusMessage('Submission error: ' + err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="page-view">
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">
+            <ClipboardPenLine color="var(--cyan)" size={24} />
+            Daily Biometrics & Wellness Check-in
+          </h1>
+          <p className="page-subtitle">
+            Astronaut daily morning telemetry logging with offline-first local validation
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className={`badge ${isOnline ? 'badge-green' : 'badge-yellow'}`}>
+            {isOnline ? <><Wifi size={12} /> ONLINE SYNCHRONIZATION ACTIVE</> : <><WifiOff size={12} /> OFFLINE MODE (QUEUED)</>}
+          </span>
+        </div>
+      </div>
+
+      {statusMessage && (
+        <div
+          style={{
+            background: lastAnalysis?.severity === 'red' ? 'rgba(255, 45, 85, 0.15)' : 'rgba(0, 240, 255, 0.12)',
+            border: `1px solid ${lastAnalysis?.severity === 'red' ? 'var(--health-red)' : 'var(--cyan)'}`,
+            padding: '14px 18px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}
+        >
+          <CheckCircle size={20} color="var(--cyan)" />
+          <div style={{ fontSize: '13px', color: '#fff' }}>
+            {statusMessage}
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="glass-card">
+        <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Heart size={16} /> 1. Vital Signs Telemetry
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+          <div>
+            <label>Heart Rate (bpm)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.heartRate}
+              onChange={e => setForm({ ...form, heartRate: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>HRV rMSSD (ms)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.hrv}
+              onChange={e => setForm({ ...form, hrv: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Blood Oxygen SpO₂ (%)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.spo2}
+              onChange={e => setForm({ ...form, spo2: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Respiratory Rate (br/min)</label>
+            <input
+              type="number"
+              step="any"
+              value={form.respiratoryRate}
+              onChange={e => setForm({ ...form, respiratoryRate: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Systolic BP (mmHg)</label>
+            <input
+              type="number"
+              value={form.systolicBP}
+              onChange={e => setForm({ ...form, systolicBP: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Diastolic BP (mmHg)</label>
+            <input
+              type="number"
+              value={form.diastolicBP}
+              onChange={e => setForm({ ...form, diastolicBP: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Core Temperature (°C)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.temperature}
+              onChange={e => setForm({ ...form, temperature: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Sleep Duration (hours)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.sleepHours}
+              onChange={e => setForm({ ...form, sleepHours: +e.target.value })}
+            />
+          </div>
+        </div>
+
+        <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Brain size={16} /> 2. Psychophysiological Self-Report (Scale 1 - 10)
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '20px' }}>
+          <div>
+            <label>Subjective Mood (1 - 10)</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={form.moodScore}
+              onChange={e => setForm({ ...form, moodScore: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Stress Level (1 - 10)</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={form.stressScore}
+              onChange={e => setForm({ ...form, stressScore: +e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label>Fatigue / Exhaustion (1 - 10)</label>
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={form.fatigueScore}
+              onChange={e => setForm({ ...form, fatigueScore: +e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '24px' }}>
+          <label>Self-Reported Symptoms / Clinical Notes (Free Text)</label>
+          <textarea
+            rows={3}
+            placeholder="Describe any dizziness, headache, orthostatic disorientation, space motion sickness, or unusual sensations..."
+            value={form.symptoms}
+            onChange={e => setForm({ ...form, symptoms: e.target.value })}
+          />
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button type="submit" className="btn" disabled={submitting}>
+            <Send size={14} />
+            {submitting ? 'Submitting Check-in...' : 'Submit Health Check-in'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
