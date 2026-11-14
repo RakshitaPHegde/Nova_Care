@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { q } from './db.js';
+import { q, pool } from './db.js';
 import nasaRouter from './nasa.js';
 import { analyze, getBaseline, buildBaseline, M, slope } from './analysis.js';
 import { initSimulator, getSimulatorStatus, startSimulation, stopSimulation, triggerScenario, clearScenario } from './simulator.js';
@@ -345,47 +345,82 @@ async function saveCheckin(aid, idempotencyKey, p) {
   }
 
   const ts = p.recordedAt ? new Date(p.recordedAt) : new Date();
-  if (isNaN(ts.getTime())) return { status: 'rejected', error: 'Invalid recordedAt timestamp' };
+  if (isNaN(ts.getTime())) {
+    return { status: 'rejected', error: 'Invalid recordedAt timestamp' };
+  }
 
-  const ins = await q(
-    `INSERT INTO sync_logs(astronaut_id, idempotency_key, status)
-     VALUES($1, $2, 'synced')
-     ON CONFLICT DO NOTHING
-     RETURNING id`,
-    [aid, idempotencyKey]
-  );
-  if (!ins.length) return { status: 'duplicate', message: 'Record already synced via idempotency key' };
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
+    return { status: 'rejected', error: 'A valid idempotency key is required' };
+  }
 
   const n = x => (x == null || x === '' ? null : +x);
-
-  await q(
-    `INSERT INTO health_metrics(
-      astronaut_id, heart_rate, hrv, spo2, respiratory_rate, systolic_bp, diastolic_bp,
-      body_temperature, sleep_hours, activity_level, recorded_at, source, data_quality
-    ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'valid')`,
-    [
-      aid,
-      n(p.heartRate),
-      n(p.hrv),
-      n(p.spo2),
-      n(p.respiratoryRate),
-      n(p.systolicBP),
-      n(p.diastolicBP),
-      n(p.temperature),
-      n(p.sleepHours),
-      n(p.activityLevel),
-      ts,
-      String(p.source || 'manual').slice(0, 30)
-    ]
-  );
-
   const mental = { stress: n(p.stressScore) };
-  if (p.moodScore != null || p.stressScore != null || p.fatigueScore != null) {
-    await q(
-      `INSERT INTO mental_health_records(astronaut_id, mood, stress, fatigue, sleep_quality, notes, recorded_at)
-       VALUES($1, $2, $3, $4, $5, $6, $7)`,
-      [aid, n(p.moodScore), n(p.stressScore), n(p.fatigueScore), n(p.sleepHours), p.symptoms ? String(p.symptoms).slice(0, 500) : null, ts]
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const ins = await client.query(
+      `INSERT INTO sync_logs(astronaut_id, idempotency_key, status)
+       VALUES($1, $2, 'synced')
+       ON CONFLICT DO NOTHING
+       RETURNING id`,
+      [aid, idempotencyKey]
     );
+
+    if (!ins.rows.length) {
+      await client.query('COMMIT');
+      return { status: 'duplicate', message: 'Record already synced via idempotency key' };
+    }
+
+    await client.query(
+      `INSERT INTO health_metrics(
+        astronaut_id, heart_rate, hrv, spo2, respiratory_rate, systolic_bp, diastolic_bp,
+        body_temperature, sleep_hours, activity_level, recorded_at, source, data_quality
+      ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'valid')`,
+      [
+        aid,
+        n(p.heartRate),
+        n(p.hrv),
+        n(p.spo2),
+        n(p.respiratoryRate),
+        n(p.systolicBP),
+        n(p.diastolicBP),
+        n(p.temperature),
+        n(p.sleepHours),
+        n(p.activityLevel),
+        ts,
+        String(p.source || 'manual').slice(0, 30)
+      ]
+    );
+
+    if (p.moodScore != null || p.stressScore != null || p.fatigueScore != null) {
+      await client.query(
+        `INSERT INTO mental_health_records(
+          astronaut_id, mood, stress, fatigue, sleep_quality, notes, recorded_at
+        ) VALUES($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          aid,
+          n(p.moodScore),
+          n(p.stressScore),
+          n(p.fatigueScore),
+          null,
+          p.symptoms ? String(p.symptoms).slice(0, 500) : null,
+          ts
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      console.error('[Sync] Transaction rollback failed:', rollbackError);
+    }
+    throw err;
+  } finally {
+    client.release();
   }
 
   const cur = {
@@ -399,19 +434,36 @@ async function saveCheckin(aid, idempotencyKey, p) {
     sleep_hours: n(p.sleepHours)
   };
 
-  const analysis = await analyze(aid, cur, mental);
+  let analysis = null;
+  let analysisError = null;
 
-  // Broadcast alert if triggered
-  if (analysis.alert) {
-    io.to(aid).to('mission').emit('alert', analysis.alert);
-    io.emit('alert', analysis.alert);
+  try {
+    analysis = await analyze(aid, cur, mental);
+
+    if (analysis.alert) {
+      io.to(aid).to('mission').emit('alert', analysis.alert);
+      io.emit('alert', analysis.alert);
+    }
+  } catch (err) {
+    analysisError = err.message;
+    console.error('[Sync] Check-in saved, but analysis failed:', err);
   }
 
-  return { status: 'synced', analysis };
+  return {
+    status: 'synced',
+    analysis,
+    ...(analysisError ? { analysisError } : {})
+  };
 }
 
 app.post('/api/health/checkin', auth(), wrap(async (req, res) => {
-  const aid = req.body.astronautId || req.user.aid;
+  const requestedAid = req.body.astronautId;
+  if (req.user.role === 'astronaut' && requestedAid && requestedAid !== req.user.aid) {
+    return res.status(403).json({ error: 'Astronaut accounts can only sync their own records' });
+  }
+  const aid = req.user.role === 'medical'
+    ? (requestedAid || req.user.aid)
+    : req.user.aid;
   if (!aid) return res.status(400).json({ error: 'Astronaut ID required' });
   const key = req.body.idempotencyKey || crypto.randomUUID();
   const result = await saveCheckin(aid, key, req.body);
@@ -419,17 +471,40 @@ app.post('/api/health/checkin', auth(), wrap(async (req, res) => {
 }));
 
 app.post('/api/sync/upload', auth(), wrap(async (req, res) => {
-  const aid = req.body.astronautId || req.user.aid;
+  const requestedAid = req.body.astronautId;
+  if (req.user.role === 'astronaut' && requestedAid && requestedAid !== req.user.aid) {
+    return res.status(403).json({ error: 'Astronaut accounts can only sync their own records' });
+  }
+  const aid = req.user.role === 'medical'
+    ? (requestedAid || req.user.aid)
+    : req.user.aid;
   if (!aid) return res.status(400).json({ error: 'Astronaut ID required' });
 
+  if (!Array.isArray(req.body.records)) {
+    return res.status(400).json({ error: 'Records must be provided as an array' });
+  }
+
   const results = [];
-  for (const r of (req.body.records || []).slice(0, 200)) {
+  for (const r of req.body.records.slice(0, 200)) {
+    const key = r?.key;
+
+    if (typeof key !== 'string' || !key.trim()) {
+      results.push({ key: key ?? null, status: 'rejected', error: 'A valid record key is required' });
+      continue;
+    }
+
+    if (!r.payload || typeof r.payload !== 'object' || Array.isArray(r.payload)) {
+      results.push({ key, status: 'rejected', error: 'Record payload must be an object' });
+      continue;
+    }
+
     try {
-      results.push({ key: r.key, ...(await saveCheckin(aid, r.key, r.payload || {})) });
+      results.push({ key, ...(await saveCheckin(aid, key, r.payload)) });
     } catch (err) {
-      results.push({ key: r.key, status: 'failed', error: err.message });
+      results.push({ key, status: 'failed', error: err.message });
     }
   }
+
   res.json({ results, syncedAt: new Date() });
 }));
 

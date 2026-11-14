@@ -1,4 +1,4 @@
-import { enqueue, pending, remove } from './offline';
+import { pending, remove, update } from './offline';
 
 export const API_URL = (import.meta as any).env.VITE_API || 'http://localhost:4000';
 
@@ -73,28 +73,132 @@ export async function request<T = any>(endpoint: string, options: {
   }
 }
 
-export async function flushOfflineQueue() {
-  const queue = await pending();
-  if (!queue.length) return { syncedCount: 0 };
+let flushPromise: Promise<any> | null = null;
 
-  try {
-    const res = await request('/api/sync/upload', {
-      method: 'POST',
-      body: { records: queue }
-    });
+export function flushOfflineQueue() {
+  if (flushPromise) return flushPromise;
 
-    let syncedCount = 0;
-    if (res.results) {
-      for (const item of res.results) {
-        if (item.status !== 'failed') {
-          await remove(item.key);
+  flushPromise = (async () => {
+    const queue = await pending();
+    const now = Date.now();
+
+    const dueRecords = queue
+      .filter(record =>
+        record.status !== 'rejected' &&
+        (!record.nextRetryAt || record.nextRetryAt <= now)
+      )
+      .slice(0, 200);
+
+    if (!dueRecords.length) {
+      return { syncedCount: 0, results: [] };
+    }
+
+    const attemptsByKey = new Map<string, number>();
+
+    for (const record of dueRecords) {
+      const attempts = (record.attempts || 0) + 1;
+      attemptsByKey.set(record.key, attempts);
+
+      await update({
+        ...record,
+        status: 'syncing',
+        attempts,
+        lastError: null
+      });
+    }
+
+    const retryRecord = async (record: any, error: string) => {
+      const attempts = attemptsByKey.get(record.key) || 1;
+      const delay = Math.min(30000 * (2 ** (attempts - 1)), 1800000);
+
+      await update({
+        ...record,
+        status: 'failed',
+        attempts,
+        lastError: error,
+        nextRetryAt: Date.now() + delay
+      });
+    };
+
+    try {
+      const response = await request('/api/sync/upload', {
+        method: 'POST',
+        body: {
+          records: dueRecords.map(record => ({
+            key: record.key,
+            payload: record.payload
+          }))
+        }
+      });
+
+      const results = Array.isArray(response.results)
+        ? response.results
+        : [];
+
+      const resultByKey = new Map(
+        results
+          .filter((item: any) => item && typeof item.key === 'string')
+          .map((item: any) => [item.key, item])
+      );
+
+      let syncedCount = 0;
+      const processedResults: any[] = [];
+
+      for (const record of dueRecords) {
+        const item: any = resultByKey.get(record.key);
+
+        if (item?.status === 'synced' || item?.status === 'duplicate') {
+          await remove(record.key);
           syncedCount++;
+          processedResults.push(item);
+        } else if (item?.status === 'rejected') {
+          await update({
+            ...record,
+            status: 'rejected',
+            lastError: item.error || 'Record rejected by server',
+            nextRetryAt: 0
+          });
+          processedResults.push(item);
+        } else {
+          const error = item?.error ||
+            'No valid synchronization result received for this record';
+
+          await retryRecord(record, error);
+          processedResults.push({
+            key: record.key,
+            status: 'failed',
+            error
+          });
         }
       }
+
+      return {
+        syncedCount,
+        results: processedResults,
+        remainingCount: queue.length - syncedCount
+      };
+    } catch (error: any) {
+      console.warn('[Sync] Offline queue flush failed:', error);
+
+      for (const record of dueRecords) {
+        await retryRecord(
+          record,
+          error?.message || 'Network synchronization failed'
+        );
+      }
+
+      return {
+        syncedCount: 0,
+        results: dueRecords.map(record => ({
+          key: record.key,
+          status: 'failed',
+          error: error?.message || 'Network synchronization failed'
+        }))
+      };
     }
-    return { syncedCount, results: res.results };
-  } catch (err) {
-    console.warn('[Sync] Offline queue flush failed:', err);
-    return { syncedCount: 0 };
-  }
+  })().finally(() => {
+    flushPromise = null;
+  });
+
+  return flushPromise;
 }
