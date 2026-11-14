@@ -227,33 +227,138 @@ async function seed() {
       day21Record = { cur: r, mental: { stress: Math.round(stress) } };
     }
   }
+  
+  // 5. Seed Different 30-day Health Profiles for Other Crew Members
 
-  // 5. Seed Baseline & Nominal 30-day History for Other 3 Crew Members
+  const profiles = [
+    {
+      heartRate: 68,
+      hrv: 52,
+      spo2: 98.2,
+      respiratoryRate: 14,
+      systolicBP: 118,
+      diastolicBP: 76,
+      temperature: 36.7,
+      sleep: 7.5,
+      activity: 75,
+      stress: 3,
+      mood: 8,
+      fatigue: 2
+    },
+    {
+      heartRate: 74,
+      hrv: 48,
+      spo2: 97.8,
+      respiratoryRate: 15,
+      systolicBP: 122,
+      diastolicBP: 80,
+      temperature: 36.9,
+      sleep: 6.8,
+      activity: 65,
+      stress: 5,
+      mood: 6,
+      fatigue: 4
+    },
+    {
+      heartRate: 82,
+      hrv: 42,
+      spo2: 97.2,
+      respiratoryRate: 16,
+      systolicBP: 126,
+      diastolicBP: 82,
+      temperature: 37.0,
+      sleep: 6.2,
+      activity: 58,
+      stress: 6,
+      mood: 5,
+      fatigue: 5
+    }
+  ];
+
   for (let ci = 1; ci < crew.length; ci++) {
     const aid = crew[ci].id;
+    const p = profiles[ci - 1];
+
     for (let d = 0; d < 30; d++) {
       const t = new Date(now - (29 - d) * DAY);
       t.setUTCHours(8, 0, 0, 0);
 
-      const hrNom = 62 + ci * 2 + g() * 1.5;
-      const hrvNom = 56 - ci * 2 + g() * 3.0;
-      const spo2Nom = 98.5 + g() * 0.3;
-      const rrNom = 14.0 + g() * 0.6;
-      const sbpNom = 116 + ci * 3 + g() * 3.0;
+      const hr = +(p.heartRate + g() * 2).toFixed(1);
+      const hrvValue = +(p.hrv + g() * 3).toFixed(1);
+      const spo2Value = +(p.spo2 + g() * 0.3).toFixed(1);
+      const rr = +(p.respiratoryRate + g() * 0.5).toFixed(1);
+      const sbp = Math.round(p.systolicBP + g() * 3);
+      const dbp = Math.round(p.diastolicBP + g() * 2);
+      const temp = +(p.temperature + g() * 0.1).toFixed(2);
+      const sleep = +(p.sleep + g() * 0.3).toFixed(1);
+      const activity = Math.round(p.activity + g() * 4);
 
+      // Health metrics
       await q(
         `INSERT INTO health_metrics(
-          astronaut_id, heart_rate, hrv, spo2, respiratory_rate, systolic_bp, diastolic_bp,
-          body_temperature, sleep_hours, activity_level, recorded_at, source, data_quality
-        ) VALUES($1, $2, $3, $4, $5, $6, 76, 36.8, 7.2, 70, $7, 'simulated', 'valid')`,
-        [aid, +hrNom.toFixed(1), +hrvNom.toFixed(1), +spo2Nom.toFixed(1), +rrNom.toFixed(1), Math.round(sbpNom), t]
+          astronaut_id, heart_rate, hrv, spo2, respiratory_rate,
+          systolic_bp, diastolic_bp, body_temperature, sleep_hours,
+          activity_level, recorded_at, source, data_quality
+        ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'simulated', 'valid')`,
+        [
+          aid,
+          hr,
+          hrvValue,
+          Math.min(spo2Value, 100),
+          rr,
+          sbp,
+          dbp,
+          temp,
+          sleep,
+          activity,
+          t
+        ]
       );
 
-      if (d === 6) await buildBaseline(aid);
+      // Mental health records
+      await q(
+        `INSERT INTO mental_health_records(
+          astronaut_id, mood, stress, fatigue, sleep_quality,
+          isolation, concentration, notes, recorded_at
+        ) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          aid,
+          Math.max(1, Math.min(10, p.mood + Math.round(g()))),
+          Math.max(1, Math.min(10, p.stress + Math.round(g()))),
+          Math.max(1, Math.min(10, p.fatigue + Math.round(g()))),
+          Math.max(1, Math.min(10, Math.round(p.sleep))),
+          2 + ci,
+          8 - ci,
+          null,
+          t
+        ]
+      );
+
+      // Exercise records every alternate day
+      if (d % 2 === 0) {
+        await q(
+          `INSERT INTO exercise_records(
+            astronaut_id, exercise_type, duration_min,
+            completed, discomfort, recorded_at
+          ) VALUES($1, $2, $3, true, $4, $5)`,
+          [
+            aid,
+            ci === 1 ? 'ARED Resistance Training' :
+            ci === 2 ? 'T2 Treadmill Training' :
+            'Cycle Ergometer Training',
+            30 + ci * 10 + Math.round(g() * 5),
+            ci + 1,
+            t
+          ]
+        );
+      }
     }
+
+    // Build personal baseline
+    await buildBaseline(aid);
   }
 
-  // Run day 21 analysis for Sarah Vance to populate the multi-indicator alert
+    // Run day 21 analysis for Sarah Vance to populate the multi-indicator alert
   if (day21Record) {
     const a21 = await analyze(sarahId, day21Record.cur, day21Record.mental);
     console.log(`[Seed] Day 21 alert generated: severity=${a21.severity}, score=${a21.riskScore}`);
