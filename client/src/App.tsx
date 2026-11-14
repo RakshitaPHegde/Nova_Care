@@ -33,6 +33,8 @@ import { TimelineView } from './views/TimelineView';
 import { CheckinView } from './views/CheckinView';
 import { GravityMindView } from './views/GravityMindView';
 import { LoginView } from './views/LoginView';
+import { ISSTrackerView } from './views/ISSTrackerView';
+import { NasaResearchView } from './views/NasaResearchView';
 
 export default function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
@@ -308,7 +310,7 @@ export default function App() {
             className="no-print"
           >
             <span>
-              {!isOnline ? '⚠ Telemetry Radio Offline: Local rules active. All submissions queued in browser vault.' : '⏳ Synchronizing records with mission database...'}
+              {!isOnline ? 'âš  Telemetry Radio Offline: Local rules active. All submissions queued in browser vault.' : 'â³ Synchronizing records with mission database...'}
             </span>
             {pendingSyncCount > 0 && (
               <span style={{ fontWeight: 700 }}>
@@ -452,6 +454,9 @@ export default function App() {
               onSelectAstronaut={setSelectedAstronautId}
             />
           )}
+          {currentTab === 'iss-tracker' && <ISSTrackerView />}
+
+          {currentTab === 'nasa-research' && <NasaResearchView />}
         </main>
       </div>
 

@@ -14,7 +14,9 @@ import {
   FileSpreadsheet,
   Clock,
   Dumbbell,
-  ClipboardPenLine
+  ClipboardPenLine,
+  Orbit,
+  Database
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -166,6 +168,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <span>Reports & Export</span>
         </button>
 
+        <div className="nav-section-title">Space Intelligence</div>
+
+        <button
+          className={`nav-item ${currentTab === 'iss-tracker' ? 'active' : ''}`}
+          onClick={() => onSelectTab('iss-tracker')}
+          style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+        >
+          <Orbit size={16} />
+          <span>Live ISS Tracker</span>
+        </button>
+
+        <button
+          className={`nav-item ${currentTab === 'nasa-research' ? 'active' : ''}`}
+          onClick={() => onSelectTab('nasa-research')}
+          style={{ width: '100%', border: 'none', background: 'none', textAlign: 'left', cursor: 'pointer' }}
+        >
+          <Database size={16} />
+          <span>NASA Research Explorer</span>
+        </button>
         <div className="nav-section-title">Crew Health Modules</div>
 
         <button

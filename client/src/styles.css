@@ -693,3 +693,93 @@ tbody tr:hover {
     color: #000 !important;
   }
 }
+
+.space-intel-page{width:100%;max-width:1500px;margin:auto;padding:28px 32px 40px;color:var(--text-main);animation:spaceFade .35s ease}
+@keyframes spaceFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.space-intel-heading{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:15px}
+.space-intel-heading h1{margin:8px 0;font-size:clamp(24px,3vw,32px);letter-spacing:-.8px}
+.space-intel-heading p{color:var(--text-secondary);font-size:13px;line-height:1.7}
+.space-intel-eyebrow{display:flex;align-items:center;gap:8px;color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:1.5px}
+.space-intel-refresh{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border:1px solid var(--border-line);border-radius:7px;background:rgba(0,240,255,.06);color:var(--cyan);font-size:12px;cursor:pointer}
+.space-intel-refresh:hover{border-color:var(--cyan);background:rgba(0,240,255,.13)}
+.space-intel-refresh:disabled{opacity:.5;cursor:not-allowed}
+.space-spin{animation:spaceSpin 1s linear infinite}
+@keyframes spaceSpin{to{transform:rotate(360deg)}}
+.space-intel-status-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:18px 0 22px;color:var(--text-muted);font-size:11px}
+.space-source-badge{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border:1px solid var(--border-line);border-radius:5px;font-size:9px;font-weight:800}
+.space-source-badge.live{color:var(--health-green);border-color:rgba(0,245,155,.25);background:rgba(0,245,155,.07)}
+.space-source-badge.live>span{width:6px;height:6px;border-radius:50%;background:var(--health-green)}
+.space-source-badge.nasa{color:var(--cyan);border-color:rgba(0,240,255,.25);background:rgba(0,240,255,.06)}
+.space-intel-error{margin:12px 0;padding:12px;border:1px solid rgba(255,45,85,.3);border-radius:7px;color:#ff8298;background:rgba(255,45,85,.07);font-size:12px}
+.iss-overview-card{position:relative;display:grid;grid-template-columns:1fr 190px;align-items:center;gap:20px;min-height:270px;padding:28px;overflow:hidden;border:1px solid rgba(0,240,255,.2);border-radius:12px;background:radial-gradient(ellipse at 70% 50%,rgba(0,110,180,.17),transparent 48%),linear-gradient(120deg,#0b1830,#0a1328 55%,#0c1b35)}
+.iss-overview-copy{position:relative;z-index:2}
+.iss-overview-copy h2{max-width:500px;margin:13px 0;font-size:clamp(23px,3vw,35px);line-height:1.2}
+.iss-overview-copy p{max-width:460px;color:var(--text-secondary);font-size:12px;line-height:1.8}
+.iss-orbit-visual{position:absolute;top:50%;left:61%;width:270px;height:230px;transform:translate(-50%,-50%);pointer-events:none}
+.iss-orbit-ring{position:absolute;top:50%;left:50%;border:1px solid rgba(0,240,255,.22);border-radius:50%;transform:translate(-50%,-50%) rotate(-22deg)}
+.iss-orbit-ring.ring-one{width:245px;height:100px}
+.iss-orbit-ring.ring-two{width:205px;height:155px;border-color:rgba(29,140,248,.22);transform:translate(-50%,-50%) rotate(42deg)}
+.iss-orbit-earth{position:absolute;top:50%;left:50%;display:flex;align-items:center;justify-content:center;width:102px;height:102px;border:1px solid rgba(0,240,255,.4);border-radius:50%;color:#76eaff;background:radial-gradient(circle at 35% 30%,#286eaa,#12345e 55%,#07162d);box-shadow:0 0 35px rgba(0,150,255,.24);transform:translate(-50%,-50%)}
+.iss-orbit-satellite{position:absolute;top:26%;right:8%;display:flex;align-items:center;justify-content:center;width:43px;height:43px;border:1px solid rgba(0,240,255,.3);border-radius:10px;color:var(--cyan);background:#102847;transform:rotate(-15deg)}
+.iss-overview-side{position:relative;z-index:2;padding-left:20px;border-left:1px solid rgba(148,169,201,.2)}
+.iss-visibility-label{margin-bottom:9px;color:var(--text-muted);font-size:9px;font-weight:800;letter-spacing:1.2px}
+.iss-visibility-value{color:var(--health-yellow);font-size:18px;font-weight:750;text-transform:capitalize}
+.iss-visibility-value.is-visible{color:var(--health-green)}
+.iss-side-divider{height:1px;margin:22px 0;background:var(--border-line)}
+.space-intel-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:18px 0}
+.space-intel-metric{min-width:0;padding:19px;border:1px solid var(--border-line);border-radius:9px;background:var(--bg-card);transition:.2s}
+.space-intel-metric:hover{border-color:rgba(0,240,255,.4);transform:translateY(-2px)}
+.space-intel-metric-top{display:flex;align-items:center;gap:9px;color:var(--text-secondary);font-size:11px}
+.space-intel-metric-top svg{color:var(--cyan)}
+.space-intel-metric-value{margin-top:16px;overflow-wrap:anywhere;color:var(--text-main);font-family:var(--font-mono);font-size:clamp(20px,2.4vw,27px);font-weight:750}
+.space-intel-metric-value small{color:var(--text-muted);font:10px var(--font-sans)}
+.space-intel-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px}
+.space-intel-panel{min-width:0;padding:21px;border:1px solid var(--border-line);border-radius:9px;background:var(--bg-card)}
+.space-intel-panel h3{margin:0 0 18px;font-size:13px}
+.space-intel-detail-row{display:flex;justify-content:space-between;gap:15px;padding:11px 0;border-bottom:1px solid rgba(30,58,102,.4);font-size:11px}
+.space-intel-detail-row:last-child{border:0}
+.space-intel-detail-row span:first-child{color:var(--text-muted)}
+.space-intel-detail-row span:last-child{color:var(--text-main);text-align:right;font-family:var(--font-mono);overflow-wrap:anywhere}
+.space-intel-provenance{display:flex;align-items:center;flex-wrap:wrap;gap:9px;color:var(--text-secondary);font-size:11px;line-height:1.7}
+.space-intel-provenance-note{color:var(--text-muted);font-size:11px;line-height:1.8}
+.nasa-research-intro{display:flex;align-items:center;gap:17px;margin:22px 0;padding:20px;border:1px solid rgba(0,240,255,.17);border-radius:9px;background:rgba(0,240,255,.045)}
+.nasa-research-intro-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:48px;height:48px;border:1px solid rgba(0,240,255,.25);border-radius:10px;color:var(--cyan);background:rgba(0,240,255,.07)}
+.nasa-research-intro p{color:var(--text-secondary);font-size:12px;line-height:1.8}
+.nasa-search-bar{display:flex;align-items:center;gap:11px;padding:0 15px;border:1px solid var(--border-line);border-radius:8px;background:var(--bg-card);color:var(--cyan)}
+.nasa-search-bar:focus-within{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,240,255,.07)}
+.nasa-search-bar input{width:100%;min-width:0;padding:15px 0;outline:none;border:0;background:transparent;color:var(--text-main);font:12px var(--font-sans)}
+.nasa-search-bar input::placeholder{color:var(--text-muted)}
+.nasa-results-toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:27px 0 14px}
+.nasa-dataset-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.nasa-dataset-card{display:flex;flex-direction:column;min-width:0;min-height:215px;padding:19px;border:1px solid var(--border-line);border-radius:9px;background:var(--bg-card);transition:.2s}
+.nasa-dataset-card:hover{transform:translateY(-3px);border-color:rgba(0,240,255,.4);background:var(--bg-panel-hover)}
+.nasa-dataset-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}
+.nasa-dataset-id{color:var(--cyan);font-family:var(--font-mono);font-size:10px;font-weight:750}
+.nasa-dataset-card h3{margin:0 0 10px;color:var(--text-main);font-size:14px;line-height:1.55}
+.nasa-dataset-description{display:-webkit-box;overflow:hidden;margin:0 0 15px;color:var(--text-secondary);font-size:11px;line-height:1.8;-webkit-line-clamp:3;-webkit-box-orient:vertical}
+.nasa-dataset-tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto;margin-bottom:15px}
+.nasa-dataset-tags span{padding:5px 8px;border:1px solid var(--border-line);border-radius:4px;color:var(--text-secondary);font-size:9px}
+.nasa-dataset-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:12px;border-top:1px solid var(--border-line);color:var(--text-muted);font-size:10px}
+.nasa-dataset-footer button{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;color:var(--cyan);font:inherit;font-weight:700;cursor:pointer}
+.nasa-pagination{display:flex;align-items:center;justify-content:center;gap:17px;margin:24px 0;color:var(--text-secondary);font-size:11px}
+.nasa-pagination button{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--border-line);border-radius:6px;background:var(--bg-card);color:var(--cyan);cursor:pointer}
+.nasa-pagination button:disabled{opacity:.35;cursor:not-allowed}
+.nasa-loading,.nasa-empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:190px;padding:30px;border:1px dashed var(--border-line);border-radius:9px;color:var(--text-secondary);text-align:center;font-size:12px}
+.nasa-loading svg,.nasa-empty-state svg{color:var(--cyan)}
+.nasa-empty-state p{max-width:390px;color:var(--text-muted);line-height:1.7}
+.nasa-modal-backdrop{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;background:rgba(2,6,15,.84);backdrop-filter:blur(9px)}
+.nasa-detail-modal{width:100%;max-width:790px;max-height:88vh;overflow-y:auto;padding:25px;border:1px solid rgba(0,240,255,.3);border-radius:12px;background:#0b1428;box-shadow:0 20px 70px rgba(0,0,0,.45)}
+.nasa-modal-header{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:20px}
+.nasa-modal-header button{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border:1px solid var(--border-line);border-radius:7px;background:var(--bg-card);color:var(--text-secondary);cursor:pointer}
+.nasa-modal-title{margin:0 0 12px;color:var(--text-main);font-size:19px;line-height:1.5}
+.nasa-modal-description{margin:0 0 22px;color:var(--text-secondary);font-size:12px;line-height:1.85}
+.nasa-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.nasa-detail-field{min-width:0;padding:13px;border:1px solid var(--border-line);border-radius:7px;background:rgba(14,23,49,.55)}
+.nasa-detail-field span{display:block;margin-bottom:7px;color:var(--text-muted);font-size:9px;font-weight:750;text-transform:uppercase}
+.nasa-detail-field strong{display:block;color:var(--text-main);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.nasa-publication{margin-top:16px;padding:15px;border-left:2px solid var(--cyan);background:rgba(0,240,255,.045);color:var(--text-secondary);font-size:11px;line-height:1.8}
+.nasa-source-link{display:inline-flex;align-items:center;gap:8px;margin-top:18px;color:var(--cyan);font-size:11px;font-weight:700;text-decoration:none}
+.space-intel-source-note{margin-top:22px;padding:12px 14px;border:1px solid var(--border-line);border-radius:7px;color:var(--text-muted);font-size:10px;line-height:1.8}
+@media(max-width:1000px){.space-intel-page{padding:24px 22px}.iss-overview-card{grid-template-columns:1fr 175px;padding:25px}.iss-orbit-visual{left:58%;transform:translate(-50%,-50%) scale(.85)}.space-intel-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.space-intel-page{padding:20px 15px}.iss-overview-card{grid-template-columns:1fr;gap:20px;padding:22px}.iss-orbit-visual{position:relative;top:auto;left:auto;width:100%;height:175px;margin:auto;transform:none}.iss-overview-side{display:flex;align-items:center;justify-content:space-between;padding:15px 0 0;border-top:1px solid rgba(148,169,201,.2);border-left:0}.iss-side-divider{width:1px;height:38px;margin:0}.nasa-dataset-grid,.space-intel-info-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.space-intel-heading{align-items:flex-start;flex-direction:column}.space-intel-metric-grid{gap:9px}.space-intel-metric{padding:14px}.nasa-detail-grid{grid-template-columns:1fr}.nasa-detail-modal{padding:18px}.nasa-pagination{gap:9px}}

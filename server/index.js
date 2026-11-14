@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { q } from './db.js';
+import nasaRouter from './nasa.js';
 import { analyze, getBaseline, buildBaseline, M, slope } from './analysis.js';
 import { initSimulator, getSimulatorStatus, startSimulation, stopSimulation, triggerScenario, clearScenario } from './simulator.js';
 
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '2mb' }));
+app.use('/api/nasa', nasaRouter);
 
 const srv = createServer(app);
 const io = new Server(srv, {
@@ -277,7 +279,7 @@ app.post('/api/missions', auth('medical'), wrap(async (req, res) => {
     `INSERT INTO missions(name, code, target_orbit, inclination, start_at, status)
      VALUES($1, $2, $3, $4, $5, 'active')
      RETURNING *`,
-    [name, code || 'AV-EXP-NEW', targetOrbit || 'LEO / 420km ISS', inclination || '51.6°', startAt ? new Date(startAt) : new Date()]
+    [name, code || 'AV-EXP-NEW', targetOrbit || 'LEO / 420km ISS', inclination || '51.6Â°', startAt ? new Date(startAt) : new Date()]
   );
   res.status(201).json(created);
 }));
@@ -476,7 +478,7 @@ app.get('/api/digital-twin', auth(), wrap(async (req, res) => {
       rollingMean7: mean7,
       rollingStd7: std7,
       slope14: slope(values.slice(-14)),
-      unit: m.includes('heart') ? 'bpm' : m.includes('hrv') ? 'ms' : m.includes('spo2') ? '%' : m.includes('temp') ? '°C' : m.includes('sleep') ? 'h' : m.includes('resp') ? 'br/min' : 'mmHg'
+      unit: m.includes('heart') ? 'bpm' : m.includes('hrv') ? 'ms' : m.includes('spo2') ? '%' : m.includes('temp') ? 'Â°C' : m.includes('sleep') ? 'h' : m.includes('resp') ? 'br/min' : 'mmHg'
     };
   });
 
@@ -488,6 +490,78 @@ app.get('/api/digital-twin', auth(), wrap(async (req, res) => {
   });
 }));
 
+// Experimental Python ML analysis (non-clinical; telemetry provenance is preserved).
+app.get('/api/ai/ml-analysis', auth(), wrap(async (req, res) => {
+  const aid = req.query.astronautId || req.user.aid;
+  if (!aid) return res.status(400).json({ error: 'Astronaut ID required' });
+  if (req.user.role === 'astronaut' && req.user.aid !== aid) {
+    return res.status(403).json({ error: 'Astronaut accounts can only analyze their own telemetry' });
+  }
+
+  const rows = await q(
+    `SELECT heart_rate, hrv, spo2, respiratory_rate, sleep_hours,
+            systolic_bp, body_temperature, recorded_at, source
+     FROM health_metrics
+     WHERE astronaut_id=$1 AND data_quality='valid'
+     ORDER BY recorded_at DESC
+     LIMIT 100`,
+    [aid]
+  );
+
+  const keys = ['heart_rate', 'hrv', 'spo2', 'respiratory_rate', 'sleep_hours', 'systolic_bp', 'body_temperature'];
+  const history = rows
+    .filter(row => keys.every(key => row[key] !== null && row[key] !== undefined && Number.isFinite(Number(row[key]))))
+    .reverse()
+    .map(row => ({
+      ...Object.fromEntries(keys.map(key => [key, Number(row[key])])),
+      recorded_at: row.recorded_at,
+      source: row.source
+    }));
+
+  if (!history.length) {
+    return res.status(422).json({ error: 'No complete valid telemetry records are available for ML analysis' });
+  }
+
+  const current = history[history.length - 1];
+  const aiBaseUrl = (process.env.AI_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+  const payload = JSON.stringify({ history, current });
+
+  try {
+    const paths = ['/anomaly/detect', '/baseline/create', '/trends/analyze'];
+    const responses = await Promise.all(paths.map(path =>
+      fetch(`${aiBaseUrl}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        signal: AbortSignal.timeout(10000)
+      })
+    ));
+
+    if (responses.some(response => !response.ok)) {
+      return res.status(502).json({ error: 'The experimental AI service returned an unsuccessful response' });
+    }
+
+    const [anomaly, baseline, trends] = await Promise.all(responses.map(response => response.json()));
+    return res.json({
+      dataType: 'EXPERIMENTAL_ML_ANALYSIS',
+      experimental: true,
+      clinicalUse: false,
+      astronautId: aid,
+      model: anomaly.model || 'isolation-forest-demo',
+      anomaly,
+      baseline,
+      trends,
+      historyPoints: history.length,
+      currentRecordedAt: current.recorded_at,
+      telemetrySource: current.source || 'unknown',
+      telemetrySimulated: current.source === 'simulated',
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[AI ML Analysis] Service request failed:', error.message);
+    return res.status(503).json({ error: 'Experimental AI service is unavailable or timed out' });
+  }
+}));
 // Generic history endpoints
 const TB = {
   health: ['health_metrics', 'recorded_at'],
@@ -748,21 +822,21 @@ app.post('/api/assistant/query', auth(), wrap(async (req, res) => {
   } else if (/environment|radiation|co2|cabin|temp|pressure/.test(lower)) {
     sources.push('environmental_readings');
     if (latestEnv) {
-      answer = `Current Station Environment: Cabin Temp ${latestEnv.cabin_temp_c}°C, Humidity ${latestEnv.humidity_pct}%, CO2 ${latestEnv.co2_ppm} ppm, Pressure ${latestEnv.cabin_pressure_kpa} kPa, Ambient Radiation ${latestEnv.radiation_usv_h} µSv/h (Cumulative Mission Dose: ${latestEnv.cumulative_dose_msv} mSv).`;
+      answer = `Current Station Environment: Cabin Temp ${latestEnv.cabin_temp_c}Â°C, Humidity ${latestEnv.humidity_pct}%, CO2 ${latestEnv.co2_ppm} ppm, Pressure ${latestEnv.cabin_pressure_kpa} kPa, Ambient Radiation ${latestEnv.radiation_usv_h} ÂµSv/h (Cumulative Mission Dose: ${latestEnv.cumulative_dose_msv} mSv).`;
     } else {
       answer = 'Atmospheric life support sensors are streaming nominally.';
     }
   } else if (/protocol|guideline|procedure/.test(lower)) {
     sources.push('mission_protocols');
     answer = `Approved Mission Health Protocols available:\n` +
-      protocols.map(p => `• ${p.protocol_code} (${p.title}): ${p.approved_content}`).join('\n\n');
+      protocols.map(p => `â€¢ ${p.protocol_code} (${p.title}): ${p.approved_content}`).join('\n\n');
   } else if (/summary|status|how am i|report/.test(lower)) {
     sources.push('health_metrics', 'health_alerts');
-    const hr = latestVitals?.heart_rate ?? '—';
-    const spo2 = latestVitals?.spo2 ?? '—';
-    const sleep = latestVitals?.sleep_hours ?? '—';
+    const hr = latestVitals?.heart_rate ?? 'â€”';
+    const spo2 = latestVitals?.spo2 ?? 'â€”';
+    const sleep = latestVitals?.sleep_hours ?? 'â€”';
     const alertCount = latestAlert ? '1 open alert' : '0 alerts';
-    answer = `Astronaut Health Summary:\n• Resting HR: ${hr} bpm\n• SpO2: ${spo2}%\n• Sleep: ${sleep} h\n• Alert Status: ${alertCount}\nMission Status: Active telemetry streaming. Decision support only; contact Flight Surgeon for clinical orders.`;
+    answer = `Astronaut Health Summary:\nâ€¢ Resting HR: ${hr} bpm\nâ€¢ SpO2: ${spo2}%\nâ€¢ Sleep: ${sleep} h\nâ€¢ Alert Status: ${alertCount}\nMission Status: Active telemetry streaming. Decision support only; contact Flight Surgeon for clinical orders.`;
   } else {
     sources.push('AstroVital Knowledgebase');
     answer = `I am the AstroVital Mission Medical AI Assistant. I can answer inquiries regarding your live biometrics (heart rate, SpO2, sleep, temperature, respiratory rate), station atmospheric conditions, active alerts, risk assessments, and approved NASA medical protocols. How can I assist your mission today?`;

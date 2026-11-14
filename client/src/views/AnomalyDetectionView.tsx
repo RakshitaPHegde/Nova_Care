@@ -24,6 +24,8 @@ export const AnomalyDetectionView: React.FC<AnomalyDetectionViewProps> = ({
 }) => {
   const [twinData, setTwinData] = useState<any>(null);
   const [anomalies, setAnomalies] = useState<any[]>([]);
+  const [mlAnalysis, setMlAnalysis] = useState<any>(null);
+  const [mlError, setMlError] = useState('');
   const [loading, setLoading] = useState(true);
 
   const activeAstro = crew.find(a => a.id === selectedAstronautId) || crew[0];
@@ -31,6 +33,8 @@ export const AnomalyDetectionView: React.FC<AnomalyDetectionViewProps> = ({
   useEffect(() => {
     if (!activeAstro) return;
     setLoading(true);
+    setMlAnalysis(null);
+    setMlError('');
 
     Promise.all([
       request(`/api/digital-twin?astronautId=${activeAstro.id}`),
@@ -42,6 +46,10 @@ export const AnomalyDetectionView: React.FC<AnomalyDetectionViewProps> = ({
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
+
+    request(`/api/ai/ml-analysis?astronautId=${activeAstro.id}`)
+      .then(result => setMlAnalysis(result))
+      .catch(err => setMlError(err.message || 'Experimental ML analysis unavailable'));
   }, [activeAstro?.id]);
 
   const metrics = twinData?.metrics || [];
@@ -157,6 +165,62 @@ export const AnomalyDetectionView: React.FC<AnomalyDetectionViewProps> = ({
         </div>
       </div>
 
+      {/* Experimental Python ML Analysis */}
+      <div className="glass-card" style={{ marginBottom: '20px' }}>
+        <div className="card-header">
+          <div className="card-title">
+            <Sparkles size={16} color="var(--cyan)" />
+            Experimental Machine Learning Analysis
+          </div>
+          <span className="badge badge-orange">NON-CLINICAL MODEL</span>
+        </div>
+
+        {mlError ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>
+            <AlertCircle size={15} style={{ verticalAlign: 'middle', marginRight: '8px' }} />
+            {mlError}. Existing digital-twin analysis remains available.
+          </div>
+        ) : !mlAnalysis ? (
+          <div style={{ color: 'var(--text-muted)', fontSize: '13px', padding: '12px 0' }}>
+            Waiting for experimental ML analysis...
+          </div>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+              <div className="metric-card">
+                <div className="metric-label">Isolation Forest</div>
+                <div className="metric-value" style={{ color: mlAnalysis.anomaly?.flagged ? 'var(--health-orange)' : 'var(--health-green)' }}>
+                  {mlAnalysis.anomaly?.score ?? 'N/A'}
+                </div>
+                <div className="metric-subtitle">Anomaly score · not a probability</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Model classification</div>
+                <div className="metric-value" style={{ fontSize: '18px', color: mlAnalysis.anomaly?.flagged ? 'var(--health-orange)' : 'var(--health-green)' }}>
+                  {mlAnalysis.anomaly?.flagged ? 'FLAGGED' : 'NOT FLAGGED'}
+                </div>
+                <div className="metric-subtitle">{mlAnalysis.model}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Complete history points</div>
+                <div className="metric-value">{mlAnalysis.historyPoints}</div>
+                <div className="metric-subtitle">Records used by the model</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+              <div><strong>Telemetry source:</strong> {mlAnalysis.telemetrySource} {mlAnalysis.telemetrySimulated ? '· SIMULATED DATA' : ''}</div>
+              <div><strong>Baseline features:</strong> {Object.keys(mlAnalysis.baseline || {}).length} of 7</div>
+              <div><strong>Trend features:</strong> {Object.keys(mlAnalysis.trends || {}).length} of 7</div>
+              <div><strong>Model:</strong> Experimental Isolation Forest · {mlAnalysis.experimental ? 'Experimental' : 'Unverified'}</div>
+            </div>
+
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px', lineHeight: 1.5 }}>
+              Research demonstration only. The anomaly score is not a medical risk probability or diagnosis. Results depend on available telemetry and should not guide clinical decisions.
+            </p>
+          </>
+        )}
+      </div>
       {/* Historical Anomaly Logs with Explainability Breakdown */}
       <div className="glass-card">
         <div className="card-header">
