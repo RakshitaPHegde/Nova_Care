@@ -55,6 +55,22 @@ export const GravityMindView: React.FC<GravityMindViewProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   const activeAstro = crew.find(a => a.id === selectedAstronautId) || crew[0];
+  // Exercise Dashboard Calculations
+const totalExerciseSessions = exerciseList.length;
+
+const totalWorkoutMinutes = exerciseList.reduce(
+  (total, exercise) => total + Number(exercise.duration_min || 0),
+  0
+);
+
+const averageDiscomfort = exerciseList.length > 0
+  ? (
+      exerciseList.reduce(
+        (total, exercise) => total + Number(exercise.discomfort || 0),
+        0
+      ) / exerciseList.length
+    ).toFixed(1)
+  : '0.0';
 
   const loadData = () => {
     if (!activeAstro) return;
@@ -165,7 +181,34 @@ export const GravityMindView: React.FC<GravityMindViewProps> = ({
       </div>
 
       {activeTab === 'exercise' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
+  <>
+    {/* Exercise Summary Cards */}
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: '16px',
+      marginBottom: '20px'
+    }}>
+      <div className="glass-card">
+        <Activity color="var(--cyan)" size={24} />
+        <h3>Total Exercise Sessions</h3>
+        <h2>{totalExerciseSessions}</h2>
+      </div>
+
+      <div className="glass-card">
+        <Dumbbell color="var(--cyan)" size={24} />
+        <h3>Total Workout Minutes</h3>
+        <h2>{totalWorkoutMinutes}</h2>
+      </div>
+
+      <div className="glass-card">
+        <Activity color="var(--cyan)" size={24} />
+        <h3>Average Discomfort</h3>
+        <h2>{averageDiscomfort} / 10</h2>
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
           {/* Exercise Form */}
           <form onSubmit={handleExerciseSubmit} className="glass-card">
             <h3 style={{ fontSize: '14px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: '14px' }}>
@@ -241,8 +284,9 @@ export const GravityMindView: React.FC<GravityMindViewProps> = ({
                 </tbody>
               </table>
             </div>
-          </div>
+                  </div>
         </div>
+      </>
       )}
 
       {activeTab === 'mind' && (
