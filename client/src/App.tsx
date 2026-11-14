@@ -211,10 +211,8 @@ export default function App() {
   const handleLoginSuccess = (authData: any) => {
     setToken(authData.token);
     setUserRole(authData.role);
-    if (authData.astronaut) {
-      setCurrentAstronaut(authData.astronaut);
-      setSelectedAstronautId(authData.astronaut.id);
-    }
+    setCurrentAstronaut(authData.astronaut ?? null);
+    setSelectedAstronautId(authData.astronaut?.id ?? null);
     loadInitialData();
   };
 
